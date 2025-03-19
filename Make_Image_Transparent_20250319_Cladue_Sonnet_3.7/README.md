@@ -1,5 +1,5 @@
 # 簽名透明背景轉換工具
-
+![](https://raw.githubusercontent.com/Ratherman/GAI_Tools/refs/heads/main/Make_Image_Transparent_20250319_Cladue_Sonnet_3.7/test_image.png)
 這是一個簡單但功能完整的網頁工具，專門用於將簽名圖像的白色/灰色背景轉換為透明背景，並輸出為PNG格式。非常適合需要數位簽名檔案的情境，如電子文件、設計素材或在線表單。
 
 ## 功能特點
