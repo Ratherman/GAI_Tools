@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>簽名透明背景轉換工具</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .image-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .image-box {
+            width: 48%;
+            min-width: 300px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            max-width: 100%;
+            background-image: linear-gradient(45deg, #f0f0f0 25%, transparent 25%), 
+                              linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #f0f0f0 75%), 
+                              linear-gradient(-45deg, transparent 75%, #f0f0f0 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .slider-group label {
+            width: 150px;
+        }
+        input[type="range"] {
+            flex-grow: 1;
+        }
+        .slider-value {
+            width: 40px;
+            text-align: right;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #3367d6;
+        }
+        .file-input {
+            margin-bottom: 10px;
+        }
+        h1 {
+            text-align: center;
+            color: #4285f4;
+        }
+        h3 {
+            margin-top: 0;
+        }
+        .instructions {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4285f4;
+        }
+    </style>
+</head>
+<body>
+    <h1>簽名透明背景轉換工具</h1>
+    
+    <div class="instructions">
+        <p><strong>使用說明：</strong></p>
+        <ol>
+            <li>上傳您的簽名圖像</li>
+            <li>調整背景閾值（較亮的像素會被視為背景並變為透明）</li>
+            <li>調整對比度以增強簽名字跡</li>
+            <li>點擊"處理簽名"按鈕查看效果</li>
+            <li>滿意後點擊"下載PNG"保存結果</li>
+        </ol>
+    </div>
+    
+    <div class="container">
+        <div class="controls">
+            <input type="file" id="imageInput" accept="image/*" class="file-input">
+            
+            <div class="slider-group">
+                <label for="threshold">背景閾值：</label>
+                <input type="range" id="threshold" min="100" max="240" value="200">
+                <span id="thresholdValue" class="slider-value">200</span>
+            </div>
+            
+            <div class="slider-group">
+                <label for="contrast">對比度增強：</label>
+                <input type="range" id="contrast" min="1" max="5" step="0.1" value="1.5">
+                <span id="contrastValue" class="slider-value">1.5</span>
+            </div>
+            
+            <button id="processBtn">處理簽名</button>
+            <button id="downloadBtn" disabled>下載PNG</button>
+        </div>
+        
+        <div class="image-container">
+            <div class="image-box">
+                <h3>原始圖像</h3>
+                <canvas id="sourceCanvas"></canvas>
+            </div>
+            <div class="image-box">
+                <h3>處理後圖像</h3>
+                <canvas id="resultCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 獲取DOM元素
+        const imageInput = document.getElementById('imageInput');
+        const sourceCanvas = document.getElementById('sourceCanvas');
+        const resultCanvas = document.getElementById('resultCanvas');
+        const processBtn = document.getElementById('processBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const threshold = document.getElementById('threshold');
+        const thresholdValue = document.getElementById('thresholdValue');
+        const contrast = document.getElementById('contrast');
+        const contrastValue = document.getElementById('contrastValue');
+        
+        // 設置Canvas上下文
+        const sourceCtx = sourceCanvas.getContext('2d');
+        const resultCtx = resultCanvas.getContext('2d');
+        
+        let originalImage = null;
+        
+        // 更新閾值顯示
+        threshold.addEventListener('input', () => {
+            thresholdValue.textContent = threshold.value;
+        });
+        
+        contrast.addEventListener('input', () => {
+            contrastValue.textContent = contrast.value;
+        });
+        
+        // 處理圖像上傳
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                originalImage = new Image();
+                originalImage.onload = () => {
+                    // 設置Canvas尺寸
+                    const maxWidth = 600;
+                    let width = originalImage.width;
+                    let height = originalImage.height;
+                    
+                    if (width > maxWidth) {
+                        const ratio = maxWidth / width;
+                        width = maxWidth;
+                        height = height * ratio;
+                    }
+                    
+                    sourceCanvas.width = width;
+                    sourceCanvas.height = height;
+                    resultCanvas.width = width;
+                    resultCanvas.height = height;
+                    
+                    // 繪製原始圖像
+                    sourceCtx.clearRect(0, 0, width, height);
+                    sourceCtx.drawImage(originalImage, 0, 0, width, height);
+                };
+                originalImage.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+        
+        // 處理圖像
+        processBtn.addEventListener('click', () => {
+            if (!originalImage) return;
+            
+            const width = sourceCanvas.width;
+            const height = sourceCanvas.height;
+            
+            // 獲取參數值
+            const thresholdVal = parseInt(threshold.value);
+            const contrastVal = parseFloat(contrast.value);
+            
+            // 獲取原始圖像數據
+            const sourceData = sourceCtx.getImageData(0, 0, width, height);
+            const resultData = new ImageData(width, height);
+            
+            // 處理圖像數據
+            for (let i = 0; i < sourceData.data.length; i += 4) {
+                // 獲取RGB值
+                const r = sourceData.data[i];
+                const g = sourceData.data[i + 1];
+                const b = sourceData.data[i + 2];
+                
+                // 計算灰度值
+                const gray = (r + g + b) / 3;
+                
+                // 應用對比度
+                let adjustedGray = ((gray / 255 - 0.5) * contrastVal + 0.5) * 255;
+                adjustedGray = Math.max(0, Math.min(255, adjustedGray));
+                
+                // 根據閾值設置透明度
+                let alpha = 255;
+                if (gray > thresholdVal) {
+                    alpha = 0; // 完全透明
+                } else {
+                    // 平滑過渡
+                    const transitionRange = 50;
+                    const lowerThreshold = thresholdVal - transitionRange;
+                    
+                    if (gray > lowerThreshold) {
+                        alpha = 255 * (1 - (gray - lowerThreshold) / transitionRange);
+                    }
+                }
+                
+                // 將黑色字跡保持為黑色
+                let outColor;
+                if (alpha > 0) {
+                    // 只保留黑色字跡
+                    outColor = 0;
+                } else {
+                    outColor = 255;
+                }
+                
+                // 設置結果數據
+                resultData.data[i] = outColor;
+                resultData.data[i + 1] = outColor;
+                resultData.data[i + 2] = outColor;
+                resultData.data[i + 3] = alpha;
+            }
+            
+            // 將處理後的圖像數據繪製到結果Canvas
+            resultCtx.putImageData(resultData, 0, 0);
+            
+            // 啟用下載按鈕
+            downloadBtn.disabled = false;
+        });
+        
+        // 下載處理後的圖像
+        downloadBtn.addEventListener('click', () => {
+            // 創建下載鏈接
+            const link = document.createElement('a');
+            link.download = '簽名_透明背景.png';
+            link.href = resultCanvas.toDataURL('image/png');
+            link.click();
+        });
+    </script>
+</body>
+</html>
