@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>抽籤網站 🎲</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #fdf6e3;
+            color: #333;
+            padding: 20px;
+        }
+        h1 {
+            color: #2aa198;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 2px 2px 10px #ccc;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+        }
+        .flash {
+            color: red;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        input[type="number"], select, input[type="file"] {
+            padding: 5px;
+            margin: 5px 0;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #2aa198;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #268986;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>抽籤網站 🎲</h1>
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash">
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% if stage == "upload" %}
+        <div class="section">
+            <h2>步驟 1：上傳檔案 📂</h2>
+            <p>請上傳 Excel 或 CSV 檔案（第一列需為欄位名稱）</p>
+            <form method="post" enctype="multipart/form-data">
+                <input type="hidden" name="step" value="upload">
+                <input type="file" name="file" required>
+                <br><br>
+                <button type="submit">上傳檔案</button>
+            </form>
+        </div>
+        {% endif %}
+
+        {% if stage == "select_column" %}
+        <div class="section">
+            <h2>步驟 2：選擇欄位 📝</h2>
+            <p>請從下拉選單中選擇要用來抽籤的欄位 (總筆數：{{ total_entries }})</p>
+            <form method="post">
+                <input type="hidden" name="step" value="select_column">
+                <input type="hidden" name="session_id" value="{{ session_id }}">
+                <select name="column" required>
+                    {% for col in columns %}
+                    <option value="{{ col }}">{{ col }}</option>
+                    {% endfor %}
+                </select>
+                <br><br>
+                <button type="submit">確定選擇</button>
+            </form>
+        </div>
+        {% endif %}
+
+        {% if stage == "preview" %}
+        <div class="section">
+            <h2>預覽資料 👀</h2>
+            <p>以下為選取欄位 <strong>{{ selected_column }}</strong> 的預覽 (共 {{ total_preview }} 筆)：</p>
+            <table>
+                <tr>
+                    <th>編號_去識別化名稱</th>
+                </tr>
+                {% for item in preview_list %}
+                <tr>
+                    <td>{{ item }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+            <br>
+            <h3>步驟 3：請輸入抽籤數量 🎲</h3>
+            <form method="post">
+                <input type="hidden" name="step" value="draw">
+                <input type="hidden" name="session_id" value="{{ session_id }}">
+                <label for="draw_count">抽籤數量 (最多 {{ total_preview }})：</label>
+                <input type="number" name="draw_count" id="draw_count" min="1" max="{{ total_preview }}" required>
+                <br><br>
+                <button type="submit">開始抽籤</button>
+            </form>
+        </div>
+        {% endif %}
+
+        {% if stage == "result" %}
+        <div class="section">
+            <h2>抽籤結果 🎉</h2>
+            <p>從 <strong>{{ selected_column }}</strong> 欄位中抽取了 {{ draw_count }} 筆，結果如下：</p>
+            <table>
+                <tr>
+                    <th>抽中的資料 (含 Prefix)</th>
+                </tr>
+                {% for item in result_list %}
+                <tr>
+                    <td>{{ item }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+            <br>
+            <a href="{{ url_for('index') }}"><button>重新開始</button></a>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
